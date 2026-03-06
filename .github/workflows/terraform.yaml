@@ -29,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tf_workspace: ${{ steps.env-vars.outputs.tf_workspace }}
+      no_changes: ${{ steps.check.outputs.no_changes }}
     defaults:
       run:
         shell: bash
@@ -103,21 +104,21 @@ jobs:
             echo "TF_VAR_FILE=dev.tfvars" >> $GITHUB_ENV
           fi
 
-      # SELECT WORKSPACE STEP REMOVED - not supported with HCP Terraform cloud backend
-
       - name: Terraform Plan
         id: plan
-        run: terraform plan -var-file=$TF_VAR_FILE -no-color -input=false -out=tfplan
+        run: terraform plan -var-file=$TF_VAR_FILE -no-color -input=false -out=tfplan -detailed-exitcode
         continue-on-error: true
 
       - name: Check for changes
         id: check
-        fi        run: |
-          if terraform show -json tfplan | grep -q '"changes":{"actions":\["no-op"\]'; then
+        run: |
+          if [ "${{ steps.plan.outcome }}" == "failure" ]; then
+            echo "no_changes=false" >> $GITHUB_OUTPUT
+          elif terraform show -json tfplan | grep -q '"actions":\["no-op"\]'; then
             echo "no_changes=true" >> $GITHUB_OUTPUT
           else
             echo "no_changes=false" >> $GITHUB_OUTPUT
-    
+          fi
 
       - name: Update Pull Request
         uses: actions/github-script@v6
@@ -163,7 +164,7 @@ jobs:
   terraform-apply:
     name: "Terraform Apply"
     needs: terraform-plan
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.terraform-plan.outputs.no_changes != 'true'
     runs-on: ubuntu-latest
     environment: ${{ needs.terraform-plan.outputs.tf_workspace }}
     defaults:
@@ -198,8 +199,6 @@ jobs:
             echo "TF_VAR_FILE=dev.tfvars" >> $GITHUB_ENV
           fi
 
-      # SELECT WORKSPACE STEP REMOVED - not supported with HCP Terraform cloud backend
-
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4
         with:
@@ -207,5 +206,4 @@ jobs:
           path: .
 
       - name: Terraform Apply
-        if: needs.terraform-plan.outputs.no_changes != 'true'
         run: terraform apply -auto-approve -input=false tfplan
