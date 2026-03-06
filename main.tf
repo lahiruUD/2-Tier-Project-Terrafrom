@@ -1,6 +1,6 @@
 terraform {
   cloud {
-    organization = "your-hcp-org-name"
+    organization = "Tech_Devops"
     workspaces {
       name = "2-Tier-Project-Terrafrom"
     }
