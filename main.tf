@@ -1,4 +1,11 @@
 terraform {
+  cloud {
+    organization = "your-hcp-org-name"
+    workspaces {
+      name = "2-Tier-Project-Terrafrom"
+    }
+  }
+
   required_version = ">= 1.0"
   required_providers {
     aws = {
@@ -23,5 +30,3 @@ provider "aws" {
     }
   }
 }
-
-
